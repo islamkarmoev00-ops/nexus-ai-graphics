@@ -1,12 +1,64 @@
 
-      - name: Extract project
+name: Build NEXUS AI GRAPHICS APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Find and extract project
         run: |
-          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          ZIP=$(find . -type f -iname '*.zip' \
+            -not -path './.git/*' | head -n 1)
+
           if [ -z "$ZIP" ]; then
-            echo "ZIP archive not found in repository root"
-            ls -la
+            echo "ERROR: ZIP archive not found"
+            find . -maxdepth 3 -type f
             exit 1
           fi
-          echo "Using archive: $ZIP"
-          unzip -qo "$ZIP" -d .
-          test -f nexus_ai_graphics/app/build.gradle
+
+          echo "Found: $ZIP"
+
+          mkdir -p "$RUNNER_TEMP/nexus"
+          unzip -qo "$ZIP" -d "$RUNNER_TEMP/nexus"
+
+          APP_GRADLE=$(find "$RUNNER_TEMP/nexus" \
+            -type f -path '*/app/build.gradle' | head -n 1)
+
+          if [ -z "$APP_GRADLE" ]; then
+            echo "ERROR: Android project not found"
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$(dirname "$APP_GRADLE")")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build APK
+        run: gradle -p "$PROJECT_DIR" assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-AI-GRAPHICS-v0.3
+          path: '**/app/build/outputs/apk/debug/*.apk'
+          if-no-files-found: error
