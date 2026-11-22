@@ -4,11 +4,14 @@ name: Build NEXUS AI GRAPHICS APK
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -22,16 +25,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Extract Android project
-        run: unzip -o nexus_ai_graphics_source.zip -d .
+      - name: Extract project
+        run: |
+          test -f nexus_ai_graphics_source.zip
+          unzip -qo nexus_ai_graphics_source.zip -d .
+          test -f nexus_ai_graphics/app/build.gradle
 
-      - name: Build debug APK
-        run: gradle -p nexus_ai_graphics assembleDebug --stacktrace
+      - name: Build APK
+        run: gradle -p nexus_ai_graphics clean assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: nexus-ai-graphics-debug-apk
           path: nexus_ai_graphics/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
           
